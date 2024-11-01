@@ -14,7 +14,7 @@ ui.page_opts(title="Elen's Palmer Penguin Dataset Exploration", fillable=True)
 
 # Create the sidebar for user interaction
 with ui.sidebar(open="open"):
-    ui.h2("Sidebar", style="font-size: 16px;")  # Adjusted size for header
+    ui.h2("Sidebar", style="font-size: 16px;")
     
     # Dropdown to select attribute
     ui.tags.div(
@@ -23,7 +23,7 @@ with ui.sidebar(open="open"):
             "Select Attribute",
             ["bill_length_mm", "flipper_length_mm", "body_mass_g"],
         ),
-        style="font-size: 12px;"  # Smaller text for dropdown
+        style="font-size: 12px;"
     )
     
     # Numeric input for Plotly histogram bins
@@ -91,7 +91,7 @@ with ui.layout_columns():
                 try:
                     data = await filtered_data()  # Get the current data
                     if data.empty:
-                        return None  # If no data, do not attempt to render the plot
+                        return None
                     plotly_hist = px.histogram(
                         data_frame=data,
                         x=input.selected_attribute(),
@@ -108,7 +108,7 @@ with ui.layout_columns():
                     return plotly_hist
                 except Exception as e:
                     print("Error generating Plotly histogram:", e)
-                    return None  # Optionally return a placeholder or None if an error occurs
+                    return None
 
         # Seaborn Histogram tab
         with ui.nav_panel("Seaborn Histogram"):
