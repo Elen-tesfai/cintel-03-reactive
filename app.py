@@ -1,94 +1,194 @@
 import plotly.express as px
-from shiny.express import input, ui, render
-from shinywidgets import render_plotly
-from pathlib import Path
-import palmerpenguins
-import pandas as pd
-import matplotlib.pyplot as plt
 from shiny import reactive
+from shiny.express import input, render, ui
+from shinywidgets import render_plotly
+from palmerpenguins import load_penguins
 import seaborn as sns
+import matplotlib.pyplot as plt
 
-# Load the Palmer Penguins dataset
-penguins_df = palmerpenguins.load_penguins()
+# Load penguins dataset
+penguins_df = load_penguins()
 
-# Optional title for the app
-app_title = "Elen's Palmer Penguin Dataset Exploration"
+# Set up the UI page options
+ui.page_opts(title="Elen's Palmer Penguin Dataset Exploration", fillable=True)
 
-# Reactive calculation for the original DataFrame
-@reactive.calc
-def dat():
-    infile = Path(__file__).parent / "penguins.csv"
-    return pd.read_csv(infile)
-
-# Default dataset to be displayed
-@reactive.calc
-def filtered_data():
-    return penguins_df  # Always return the full dataset
-
-with ui.sidebar(bg="#f8f8f8"):
-    ui.input_slider("n", "N", 0, 100, 20)
-    ui.input_checkbox_group(
-        "checkbox_group", 
-        "Penguin Species", 
-        {
-            "Chinstrap": "Chinstrap",
-            "Gentoo": "Gentoo",
-            "Adelie": "Adelie",
-        }
+# Create the sidebar for user interaction
+with ui.sidebar(open="open"):
+    ui.h2("Sidebar", style="font-size: 16px;")  # Adjusted size for header
+    
+    # Dropdown to select attribute
+    ui.tags.div(
+        ui.input_selectize(
+            "selected_attribute",
+            "Select Attribute",
+            ["bill_length_mm", "flipper_length_mm", "body_mass_g"],
+        ),
+        style="font-size: 12px;"  # Smaller text for dropdown
     )
-    ui.input_checkbox_group(
-        "island_checkbox_group", 
-        "Select Islands", 
-        {
-            "Biscoe": "Biscoe",
-            "Dream": "Dream",
-            "Torgersen": "Torgersen"
-        }
+    
+    # Numeric input for Plotly histogram bins
+    ui.tags.div(
+        ui.input_numeric("plotly_bin_count", "Plotly Bin Count", 30),
+        style="font-size: 12px;"
+    )
+    
+    # Slider for Seaborn histogram bins
+    ui.tags.div(
+        ui.input_slider(
+            "seaborn_bin_count",
+            "Seaborn Bin Count",
+            1,
+            100,
+            30,
+        ),
+        style="font-size: 12px;"
+    )
+    
+    # Checkbox group for selecting species
+    ui.tags.div(
+        ui.input_checkbox_group(
+            "selected_species_list",
+            "Select Species",
+            ["Adelie", "Gentoo", "Chinstrap"],
+            selected=["Adelie"],
+            inline=True,
+        ),
+        style="font-size: 12px;"
     )
 
-# Main content
-ui.page_opts(title=app_title, fillable=True)
+# Layout columns for organizing content
+with ui.layout_columns():
+    # Data Table card
+    with ui.card():
+        ui.card_header("Data Table")
 
-with ui.layout_columns():  # Use layout_columns for a grid-like structure
-    # Data Frame with Title
-    with ui.card():  # Create a card-like frame
-        ui.h4("Data Frame Table")  # Smaller title size
         @render.data_frame
-        def frame():
-            return dat()
+        async def penguin_datatable():
+            return await filtered_data()  # Use filtered data
 
-    # Flipper Length Distribution
-    @render_plotly
-    def plotly_flipper_length_histogram():
-        return px.histogram(filtered_data(), x="flipper_length_mm", color="species", 
-                             title="Flipper Length Distribution by Species")
+    # Data Grid card
+    with ui.card():
+        ui.card_header("Data Grid")
 
-    # Bill Length Distribution
-    @render_plotly
-    def plotly_bill_length_histogram():
-        return px.histogram(filtered_data(), x="bill_length_mm", color="species", 
-                             title="Bill Length Distribution by Species")
+        @render.data_frame
+        async def penguin_datagrid():
+            return await filtered_data()  # Use filtered data
 
-    # Body Mass Distribution
-    @render.plot
-    def seaborn_body_mass_histogram():
-        fig, ax = plt.subplots(figsize=(8, 6))  # Match size with other plots
-        sns.histplot(data=filtered_data(), x="body_mass_g", hue="species", 
-                     multiple="stack",  # Use 'stack' to avoid overlapping
-                     bins=15,  # Adjust number of bins
-                     ax=ax, 
-                     alpha=0.9)  # Set transparency
-        ax.set_title("Body Mass Distribution by Species", fontsize=10, fontweight='normal')  # Unbolded title
-        ax.set_xlabel("Mass (g)", fontsize=9)  # Smaller xlabel size
-        ax.set_ylabel("Count", fontsize=9)  # Smaller ylabel size
-        plt.tight_layout()  # Adjust layout for better spacing
-        ax.legend(title='Species', labels=['Adelie', 'Gentoo', 'Chinstrap'], loc='upper left', bbox_to_anchor=(1.05, 1))  # Unbolded species names
-        return fig
+# Add a reactive calculation to filter the data
+@reactive.calc
+async def filtered_data():
+    return penguins_df[penguins_df["species"].isin(input.selected_species_list())]
 
-    # Scatter Plot of Flipper Length vs. Bill Length
-    @render_plotly
-    def plotly_scatterplot():
-        return px.scatter(filtered_data(), x="flipper_length_mm", y="bill_length_mm", color="species", 
-                          title="Flipper Length vs. Bill Length")
+# Layout columns for visualizations
+with ui.layout_columns():
+    # Tabbed tabset card for plots
+    with ui.navset_card_tab(id="plot_tabs"):
+        # Plotly Histogram tab
+        with ui.nav_panel("Plotly Histogram"):
 
-  
+            @render_plotly
+            async def plotly_histogram():
+                try:
+                    data = await filtered_data()  # Get the current data
+                    if data.empty:
+                        return None  # If no data, do not attempt to render the plot
+                    plotly_hist = px.histogram(
+                        data_frame=data,
+                        x=input.selected_attribute(),
+                        nbins=input.plotly_bin_count(),
+                        color="species",
+                        color_discrete_sequence=["#5e4b8a", "#a55e8b", "#d59b84"],
+                    ).update_layout(
+                        title="Plotly Penguins Data by Attribute",
+                        xaxis_title="Selected Attribute",
+                        yaxis_title="Count",
+                        plot_bgcolor='#ffebee',
+                        paper_bgcolor='#ffebee',
+                    )
+                    return plotly_hist
+                except Exception as e:
+                    print("Error generating Plotly histogram:", e)
+                    return None  # Optionally return a placeholder or None if an error occurs
+
+        # Seaborn Histogram tab
+        with ui.nav_panel("Seaborn Histogram"):
+
+            @render.plot
+            async def seaborn_histogram():
+                try:
+                    data = await filtered_data()
+                    if data.empty:
+                        return None
+                    plt.figure(facecolor='#ffebee')
+                    seaborn_hist = sns.histplot(
+                        data=data,
+                        x=input.selected_attribute(),
+                        bins=input.seaborn_bin_count(),
+                        color="#5e4b8a",
+                    )
+                    seaborn_hist.set_title("Seaborn Penguin Data by Attribute")
+                    seaborn_hist.set_xlabel("Selected Attribute")
+                    seaborn_hist.set_ylabel("Count")
+                    plt.gca().set_facecolor('#ffebee')
+                    plt.tight_layout()
+                    return seaborn_hist
+                except Exception as e:
+                    print("Error generating Seaborn histogram:", e)
+                    return None
+
+        # Plotly Scatterplot tab
+        with ui.nav_panel("Plotly Scatterplot"):
+
+            @render_plotly
+            async def plotly_scatterplot():
+                try:
+                    data = await filtered_data()
+                    if data.empty:
+                        return None
+                    plotly_scatter = px.scatter(
+                        data_frame=data,
+                        x="bill_length_mm",
+                        y="bill_depth_mm",
+                        color="species",
+                        size_max=8,
+                        title="Plotly Scatterplot: Bill Depth and Length",
+                        labels={
+                            "bill_depth_mm": "Bill Depth (mm)",
+                            "bill_length_mm": "Bill Length (mm)",
+                        },
+                        color_discrete_sequence=["#5e4b8a", "#a55e8b", "#d59b84"],
+                    ).update_layout(
+                        plot_bgcolor='#ffebee',
+                        paper_bgcolor='#ffebee',
+                    )
+                    return plotly_scatter
+                except Exception as e:
+                    print("Error generating Plotly scatterplot:", e)
+                    return None
+
+        # Grouped Bar Plot tab
+        with ui.nav_panel("Grouped Bar Plot"):
+
+            @render_plotly
+            async def grouped_bar_plot():
+                try:
+                    data = await filtered_data()
+                    if data.empty:
+                        return None
+                    grouped_bar = px.bar(
+                        data_frame=data,
+                        x="island",
+                        y="bill_length_mm",
+                        color="species",
+                        barmode="group",
+                        title="Average Bill Length by Island",
+                        labels={"bill_length_mm": "Average Bill Length (mm)"},
+                        color_discrete_sequence=["#5e4b8a", "#a55e8b", "#d59b84"],
+                    ).update_layout(
+                        plot_bgcolor='#ffebee',
+                        paper_bgcolor='#ffebee',
+                    )
+                    return grouped_bar
+                except Exception as e:
+                    print("Error generating grouped bar plot:", e)
+                    return None
