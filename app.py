@@ -14,6 +14,7 @@ penguins_df = palmerpenguins.load_penguins()
 # Optional title for the app
 app_title = "Elen's Palmer Penguin Dataset Exploration"
 
+# Reactive calculation for the original DataFrame
 @reactive.calc
 def dat():
     infile = Path(__file__).parent / "penguins.csv"
@@ -59,20 +60,20 @@ with ui.layout_columns():  # Use layout_columns for a grid-like structure
     # Flipper Length Distribution
     @render_plotly
     def plotly_flipper_length_histogram():
-        return px.histogram(penguins_df, x="flipper_length_mm", color="species", 
+        return px.histogram(filtered_data(), x="flipper_length_mm", color="species", 
                              title="Flipper Length Distribution by Species")
 
     # Bill Length Distribution
     @render_plotly
     def plotly_bill_length_histogram():
-        return px.histogram(penguins_df, x="bill_length_mm", color="species", 
+        return px.histogram(filtered_data(), x="bill_length_mm", color="species", 
                              title="Bill Length Distribution by Species")
 
     # Body Mass Distribution
     @render.plot
     def seaborn_body_mass_histogram():
         fig, ax = plt.subplots(figsize=(8, 6))  # Match size with other plots
-        sns.histplot(data=penguins_df, x="body_mass_g", hue="species", 
+        sns.histplot(data=filtered_data(), x="body_mass_g", hue="species", 
                      multiple="stack",  # Use 'stack' to avoid overlapping
                      bins=15,  # Adjust number of bins
                      ax=ax, 
@@ -87,12 +88,7 @@ with ui.layout_columns():  # Use layout_columns for a grid-like structure
     # Scatter Plot of Flipper Length vs. Bill Length
     @render_plotly
     def plotly_scatterplot():
-        return px.scatter(penguins_df, x="flipper_length_mm", y="bill_length_mm", color="species", 
+        return px.scatter(filtered_data(), x="flipper_length_mm", y="bill_length_mm", color="species", 
                           title="Flipper Length vs. Bill Length")
 
-    # Pie Chart of Species Distribution
-    @render_plotly
-    def plotly_species_distribution():
-        species_counts = penguins_df['species'].value_counts()
-        return px.pie(species_counts, values=species_counts.values, names=species_counts.index,
-                      title="Distribution of Penguin Species")
+  
