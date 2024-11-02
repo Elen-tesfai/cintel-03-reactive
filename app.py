@@ -74,10 +74,13 @@ with ui.layout_columns():
         async def penguin_datagrid():
             return await filtered_data()  # Use filtered data
 
-# Add a reactive calculation to return the original DataFrame
+# Add a reactive calculation to return filtered DataFrame
 @reactive.calc
 async def filtered_data():
-    return penguins_df  # Simply return the original DataFrame
+    selected_species = input.selected_species_list()
+    if selected_species:
+        return penguins_df[penguins_df['species'].isin(selected_species)]
+    return penguins_df  # Return original DataFrame if no species are selected
 
 # Layout columns for visualizations
 with ui.layout_columns():
